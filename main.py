@@ -30,12 +30,14 @@ app.add_middleware(
 # Pydantic model for scanning
 class ScanItemRequest(BaseModel):
     sku: str
+    orderId: str
+
 # Helper to send MQTT message with authentication
-def send_mqtt_message(cubby_id: int, sku: str):
+def send_mqtt_message(cubby_id: int):
     topic = f"cubbie/{cubby_id}/item"
     publish.single(
         topic,
-        payload=sku,
+        payload="item",  # Simple payload
         hostname=MQTT_BROKER,
         port=MQTT_PORT,
         auth={
@@ -47,32 +49,38 @@ def send_mqtt_message(cubby_id: int, sku: str):
 # POST /scan-item endpoint
 @app.post("/scan-item")
 async def scan_item(payload: ScanItemRequest):
-    # 1. Find the nearest available cubby
-    cubby_res = supabase.table("cubbies")\
-        .select("cubbyid")\
-        .eq("occupied", False)\
-        .order("cubbyid", asc=True)\
-        .limit(1)\
-        .execute()
+    # 1. Get product name
+    product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
+    if not product_res.data:
+        raise HTTPException(status_code=404, detail="SKU not found in product catalog")
+    product_name = product_res.data["name"]
 
-    if not cubby_res.data:
-        raise HTTPException(status_code=400, detail="No available cubbies")
+    # 2. Check if order already has assigned cubby
+    order_res = supabase.table("orders").select("cubbyid").eq("orderid", payload.orderId).single().execute()
+    if not order_res.data:
+        raise HTTPException(status_code=404, detail="Order not found")
 
-    cubby_id = cubby_res.data[0]["cubbyid"]
+    cubby_id = order_res.data.get("cubbyid")
 
-    # 2. Mark cubby as occupied with this SKU
-    supabase.table("cubbies").update({
-        "occupied": True,
-        "sku": payload.sku
-    }).eq("cubbyid", cubby_id).execute()
+    # 3. If no cubby assigned yet, find one and assign it
+    if cubby_id is None:
+        cubby_res = supabase.table("cubbies").select("cubbyid").eq("occupied", False).order("cubbyid", asc=True).limit(1).execute()
+        if not cubby_res.data:
+            raise HTTPException(status_code=400, detail="No available cubbies")
 
-    # 3. Insert the item into 'items' table
-    supabase.table("items").insert({
-        "sku": payload.sku,
-        "cubbyid": cubby_id
-    }).execute()
+        cubby_id = cubby_res.data[0]["cubbyid"]
 
-    # 4. Send MQTT message to cubby
-    send_mqtt_message(cubby_id, payload.sku)
+        # Update orders table
+        supabase.table("orders").update({"cubbyid": cubby_id}).eq("orderid", payload.orderId).execute()
 
-    return {"assignedCubby": cubby_id, "message": f"SKU {payload.sku} assigned to cubby {cubby_id}"}
+        # Mark cubby as occupied
+        supabase.table("cubbies").update({"occupied": True}).eq("cubbyid", cubby_id).execute()
+
+    # 4. Mark item as scanned
+    supabase.table("order_items").update({"scanned": True}).eq("orderid", payload.orderId).eq("sku", payload.sku).execute()
+
+    # 5. Send MQTT message to cubby
+    send_mqtt_message(cubby_id)
+
+    # 6. Respond with assigned cubby and product name
+    return {"assignedCubby": cubby_id, "productName": product_name}
