@@ -5,6 +5,7 @@ from supabase import create_client, Client
 import paho.mqtt.publish as publish
 import os
 from dotenv import load_dotenv
+import random
 
 # Load environment variables
 load_dotenv()
@@ -33,11 +34,12 @@ class ScanItemRequest(BaseModel):
     orderId: str
 
 # Helper to send MQTT message with authentication
-def send_mqtt_message(cubby_id: int):
+def send_mqtt_message(cubby_id: int, color: int):
     topic = f"cubbie/{cubby_id}/item"
+    payload = str(color)  # Send color index as payload
     publish.single(
         topic,
-        payload="item",  # Simple payload
+        payload=payload,
         hostname=MQTT_BROKER,
         port=MQTT_PORT,
         auth={
@@ -79,8 +81,11 @@ async def scan_item(payload: ScanItemRequest):
     # 4. Mark item as scanned
     supabase.table("order_items").update({"scanned": True}).eq("orderid", payload.orderId).eq("sku", payload.sku).execute()
 
-    # 5. Send MQTT message to cubby
-    send_mqtt_message(cubby_id)
+    # 5. Assign a random color index (0 to 5)
+    color_index = random.randint(0, 5)
 
-    # 6. Respond with assigned cubby and product name
-    return {"assignedCubby": cubby_id, "productName": product_name}
+    # 6. Send MQTT message to cubby with color
+    send_mqtt_message(cubby_id, color_index)
+
+    # 7. Respond with assigned cubby, product name, and color
+    return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
