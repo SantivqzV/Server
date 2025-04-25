@@ -66,7 +66,14 @@ async def scan_item(payload: ScanItemRequest):
 
     # 3. If no cubby assigned yet, find one and assign it
     if cubby_id is None:
-        cubby_res = supabase.table("cubbies").select("cubbyid").eq("occupied", False).order("cubbyid", asc=True).limit(1).execute()
+        # Fix for the .order() method
+        cubby_res = supabase.table("cubbies")\
+            .select("cubbyid")\
+            .eq("occupied", False)\
+            .order("cubbyid")\
+            .limit(1)\
+            .execute()
+
         if not cubby_res.data:
             raise HTTPException(status_code=400, detail="No available cubbies")
 
