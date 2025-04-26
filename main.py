@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
-import paho.mqtt.client as mqtt  # Corrected import
+import paho.mqtt.client as mqtt
 import os
 from dotenv import load_dotenv
 import random
@@ -18,11 +18,30 @@ MQTT_USER = os.getenv("MQTT_USER")
 MQTT_PASS = os.getenv("MQTT_PASS")
 
 # Initialize MQTT client
-client = mqtt.Client()
-client.username_pw_set(MQTT_USER, MQTT_PASS)
-client.tls_set()
-client.connect(MQTT_BROKER, MQTT_PORT)
-client.loop_start()
+mqtt_client = mqtt.Client()
+mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
+mqtt_client.tls_set()
+
+# Define MQTT event callbacks
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        logging.info("Connected to MQTT broker")
+    else:
+        logging.error(f"Failed to connect to MQTT broker, return code {rc}")
+
+def on_disconnect(client, userdata, rc):
+    logging.info("Disconnected from MQTT broker")
+
+# Attach callbacks
+mqtt_client.on_connect = on_connect
+mqtt_client.on_disconnect = on_disconnect
+
+# Connect to the broker
+try:
+    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+    mqtt_client.loop_start()  # Start the loop in a separate thread
+except Exception as e:
+    logging.error(f"Error connecting to MQTT broker: {e}")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -45,24 +64,15 @@ class ScanItemRequest(BaseModel):
     sku: str
     orderId: str
 
-# Helper to send MQTT message with authentication
+# Helper to send MQTT message
 def send_mqtt_message(cubby_id: int, color: int):
     topic = f"cubbie/{cubby_id}/item"
     payload = str(color)  # Send color index as payload
     try:
-        mqtt.publish.single(
-            topic,
-            payload=payload,
-            hostname=MQTT_BROKER,
-            port=MQTT_PORT,
-            auth={
-                "username": MQTT_USER,
-                "password": MQTT_PASS
-            }
-        )
-        logging.info(f"MQTT message sent to topic '{topic}' with payload '{payload}'")
+        mqtt_client.publish(topic, payload)
+        logging.info(f"MQTT message published to topic '{topic}' with payload '{payload}'")
     except Exception as e:
-        logging.error(f"Failed to send MQTT message: {e}")
+        logging.error(f"Failed to publish MQTT message: {e}")
 
 # POST /scan-item endpoint
 @app.post("/scan-item")
