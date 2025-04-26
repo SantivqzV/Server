@@ -20,6 +20,9 @@ MQTT_PASS = "Coppel2025"
 # Initialize MQTT client
 mqtt_client = mqtt.Client()
 mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
+mqtt_client.tls_set()
+mqtt_client.connect(broker, port)
+mqtt_client.loop_start()
 
 # Define MQTT event callbacks
 def on_connect(client, userdata, flags, rc):
@@ -34,13 +37,6 @@ def on_disconnect(client, userdata, rc):
 # Attach callbacks
 mqtt_client.on_connect = on_connect
 mqtt_client.on_disconnect = on_disconnect
-
-# Connect to the broker
-try:
-    mqtt_client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
-    mqtt_client.loop_start()  # Start the loop in a separate thread
-except Exception as e:
-    logging.error(f"Error connecting to MQTT broker: {e}")
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -63,15 +59,21 @@ class ScanItemRequest(BaseModel):
     sku: str
     orderId: str
 
-# Helper to send MQTT message
+# Helper to send MQTT message with full debug
 def send_mqtt_message(cubby_id: int, color: int):
     topic = f"cubbie/{cubby_id}/item"
-    payload = str(color)  # Send color index as payload
+    payload = str(color)
     try:
-        mqtt_client.publish(topic, payload)
-        logging.info(f"MQTT message published to topic '{topic}' with payload '{payload}'")
+        logging.info(f"Preparing to publish MQTT message to topic '{topic}' with payload '{payload}'")
+        result = mqtt_client.publish(topic, payload)
+        status = result.rc
+        if status == mqtt.MQTT_ERR_SUCCESS:
+            logging.info(f"✅ Successfully published to {topic}")
+        else:
+            logging.error(f"❌ Failed to publish to {topic}, status code: {status}")
     except Exception as e:
-        logging.error(f"Failed to publish MQTT message: {e}")
+        logging.error(f"⚠️ Exception during MQTT publish: {e}")
+
 
 # POST /scan-item endpoint
 @app.post("/scan-item")
