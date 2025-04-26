@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
-import paho.mqtt.publish as publish
+import paho.mqtt.publish as mqtt
 import os
 from dotenv import load_dotenv
 import random
@@ -17,8 +17,17 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 1883))
 MQTT_USER = os.getenv("MQTT_USER")
 MQTT_PASS = os.getenv("MQTT_PASS")
 
+# Initialize MQTT client
+client = mqtt.Client()
+client.username_pw_set(MQTT_USER, MQTT_PASS)
+client.tls_set()
+client.connect(MQTT_BROKER, MQTT_PORT)
+client.loop_start()
+
+# Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 
 # Initialize FastAPI
@@ -40,16 +49,20 @@ class ScanItemRequest(BaseModel):
 def send_mqtt_message(cubby_id: int, color: int):
     topic = f"cubbie/{cubby_id}/item"
     payload = str(color)  # Send color index as payload
-    publish.single(
-        topic,
-        payload=payload,
-        hostname=MQTT_BROKER,
-        port=MQTT_PORT,
-        auth={
-            "username": MQTT_USER,
-            "password": MQTT_PASS
-        }
-    )
+    try:
+        mqtt.publish.single(
+            topic,
+            payload=payload,
+            hostname=MQTT_BROKER,
+            port=MQTT_PORT,
+            auth={
+                "username": MQTT_USER,
+                "password": MQTT_PASS
+            }
+        )
+        logging.info(f"MQTT message sent to topic '{topic}' with payload '{payload}'")
+    except Exception as e:
+        logging.error(f"Failed to send MQTT message: {e}")
 
 # POST /scan-item endpoint
 @app.post("/scan-item")
@@ -71,7 +84,6 @@ async def scan_item(payload: ScanItemRequest):
 
     # 3. If no cubby assigned yet, find one and assign it
     if cubby_id is None:
-        # Fix for the .order() method
         cubby_res = supabase.table("cubbies")\
             .select("cubbyid")\
             .eq("occupied", False)\
