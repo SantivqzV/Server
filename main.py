@@ -21,7 +21,7 @@ MQTT_PASS = "Coppel2025"
 mqtt_client = mqtt.Client()
 mqtt_client.username_pw_set(MQTT_USER, MQTT_PASS)
 mqtt_client.tls_set()
-mqtt_client.connect(broker, port)
+mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
 mqtt_client.loop_start()
 
 # Define MQTT event callbacks
