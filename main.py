@@ -61,7 +61,7 @@ class ScanItemRequest(BaseModel):
     orderId: str
 
 # Helper to send MQTT message with full debug
-def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
+def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
     colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
     color_name = colors[color_index]  # Map the color index to a color name
