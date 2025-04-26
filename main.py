@@ -6,6 +6,7 @@ import paho.mqtt.client as mqtt
 import os
 from dotenv import load_dotenv
 import random
+import json
 import logging
 
 # Load environment variables
@@ -60,12 +61,18 @@ class ScanItemRequest(BaseModel):
     orderId: str
 
 # Helper to send MQTT message with full debug
-def send_mqtt_message(cubby_id: int, color: int):
+def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
     topic = f"cubbie/{cubby_id}/item"
-    payload = str(color)
+    colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
+    color_name = colors[color_index]  # Map the color index to a color name
+    payload = {
+        "status": "ASSIGNED",
+        "color": color_name,
+        "remaining_items": 3
+    }
     try:
         logging.info(f"Preparing to publish MQTT message to topic '{topic}' with payload '{payload}'")
-        result = mqtt_client.publish(topic, payload)
+        result = mqtt_client.publish(topic, json.dumps(payload))
         status = result.rc
         if status == mqtt.MQTT_ERR_SUCCESS:
             logging.info(f"✅ Successfully published to {topic}")
