@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
-import paho.mqtt.publish as mqtt
+import paho.mqtt.client as mqtt  # Corrected import
 import os
 from dotenv import load_dotenv
 import random
