@@ -6,6 +6,7 @@ import paho.mqtt.publish as publish
 import os
 from dotenv import load_dotenv
 import random
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -17,6 +18,8 @@ MQTT_USER = os.getenv("MQTT_USER")
 MQTT_PASS = os.getenv("MQTT_PASS")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+logging.basicConfig(level=logging.INFO)
 
 # Initialize FastAPI
 app = FastAPI()
@@ -51,8 +54,10 @@ def send_mqtt_message(cubby_id: int, color: int):
 # POST /scan-item endpoint
 @app.post("/scan-item")
 async def scan_item(payload: ScanItemRequest):
+    logging.info(f"Received payload: {payload}")
     # 1. Get product name
     product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
+    logging.info(f"Product query result: {product_res}")
     if not product_res.data:
         raise HTTPException(status_code=404, detail="SKU not found in product catalog")
     product_name = product_res.data["name"]
