@@ -12,10 +12,10 @@ import logging
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-MQTT_BROKER = os.getenv("MQTT_BROKER")
+MQTT_BROKER = "8599a322d7a3418cae7d8d51f111fb87.s1.eu.hivemq.cloud"
 MQTT_PORT = 8883
-MQTT_USER = os.getenv("MQTT_USER")
-MQTT_PASS = os.getenv("MQTT_PASS")
+MQTT_USER = "santivqz"
+MQTT_PASS = "Coppel2025"
 
 # Initialize MQTT client
 mqtt_client = mqtt.Client()
