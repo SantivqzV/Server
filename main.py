@@ -116,6 +116,23 @@ async def scan_item(payload: ScanItemRequest):
     cubby_id = best_order.get("cubbyid")
     remaining_items = best_order.get("remaining_items")
 
+    # 3. If cubby already assigned, validate if it's free
+    if cubby_id is not None:
+        cubby_check = supabase.table("cubbies")\
+            .select("in_progress")\
+            .eq("cubbyid", cubby_id)\
+            .single()\
+            .execute()
+
+        if not cubby_check.data:
+            raise HTTPException(status_code=404, detail="Cubby not found")
+
+        if cubby_check.data["in_progress"]:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cubby {cubby_id} is still in progress. Wait for confirmation before adding new items."
+            )
+
     # 3. If no cubby assigned yet, find and assign one
     if cubby_id is None:
         cubby_res = supabase.table("cubbies")\
