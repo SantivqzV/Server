@@ -59,6 +59,9 @@ app.add_middleware(
 class ScanItemRequest(BaseModel):
     sku: str
 
+class ConfirmPlacementRequest(BaseModel):
+    cubby_id: int
+
 # Helper to send MQTT message with full debug
 def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
@@ -118,6 +121,7 @@ async def scan_item(payload: ScanItemRequest):
         cubby_res = supabase.table("cubbies")\
             .select("cubbyid")\
             .eq("occupied", False)\
+            .eq("in_progress", False)\
             .order("cubbyid")\
             .limit(1)\
             .execute()
@@ -131,7 +135,10 @@ async def scan_item(payload: ScanItemRequest):
         supabase.table("orders").update({"cubbyid": cubby_id}).eq("orderid", order_id).execute()
 
         # Mark cubby as occupied
-        supabase.table("cubbies").update({"occupied": True}).eq("cubbyid", cubby_id).execute()
+        supabase.table("cubbies").update({
+            "occupied": True,
+            "in_progress": True
+            }).eq("cubbyid", cubby_id).execute()
 
     # 4. Mark item as scanned
     supabase.table("order_items")\
@@ -155,3 +162,20 @@ async def scan_item(payload: ScanItemRequest):
     send_mqtt_message(cubby_id, color_index)
 
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
+
+@app.post("/confirm-placement")
+async def confirm_placement(payload: ConfirmPlacementRequest):
+    cubby_id = payload.cubbyId
+
+    # 1. Check cubby exists
+    cubby_res = supabase.table("cubbies").select("*").eq("cubbyid", cubby_id).single().execute()
+    if not cubby_res.data:
+        raise HTTPException(status_code=404, detail="Cubby not found")
+
+    # 2. Set in_progress = FALSE
+    supabase.table("cubbies").update({
+        "in_progress": False
+    }).eq("cubbyid", cubby_id).execute()
+
+    logging.info(f"✅ Cubby {cubby_id} placement confirmed.")
+    return {"message": f"Cubby {cubby_id} confirmed"}
