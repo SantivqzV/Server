@@ -58,49 +58,62 @@ app.add_middleware(
 # Pydantic model for scanning
 class ScanItemRequest(BaseModel):
     sku: str
-    orderId: str
 
 # Helper to send MQTT message with full debug
 def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
     colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
-    color_name = colors[color_index]  # Map the color index to a color name
+    color_name = colors[color_index]
     payload = {
         "status": "ASSIGNED",
         "color": color_name,
-        "remaining_items": 3
+        "remaining_items": 3  # optional, could be dynamic later
     }
     try:
-        logging.info(f"Preparing to publish MQTT message to topic '{topic}' with payload '{payload}'")
+        logging.info(f"Publishing MQTT to '{topic}' with payload '{payload}'")
         result = mqtt_client.publish(topic, json.dumps(payload))
-        status = result.rc
-        if status == mqtt.MQTT_ERR_SUCCESS:
-            logging.info(f"✅ Successfully published to {topic}")
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            logging.info(f"✅ MQTT Published to {topic}")
         else:
-            logging.error(f"❌ Failed to publish to {topic}, status code: {status}")
+            logging.error(f"❌ MQTT Publish failed with code {result.rc}")
     except Exception as e:
-        logging.error(f"⚠️ Exception during MQTT publish: {e}")
+        logging.error(f"⚠️ MQTT publish exception: {e}")
 
 
 # POST /scan-item endpoint
 @app.post("/scan-item")
 async def scan_item(payload: ScanItemRequest):
     logging.info(f"Received payload: {payload}")
-    # 1. Get product name
-    product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
-    logging.info(f"Product query result: {product_res}")
-    if not product_res.data:
-        raise HTTPException(status_code=404, detail="SKU not found in product catalog")
-    product_name = product_res.data["name"]
 
-    # 2. Check if order already has assigned cubby
-    order_res = supabase.table("orders").select("cubbyid").eq("orderid", payload.orderId).single().execute()
-    if not order_res.data:
-        raise HTTPException(status_code=404, detail="Order not found")
+    # 1. Find orders that have this SKU and it's not yet scanned
+    item_res = supabase.table("order_items")\
+        .select("orderid")\
+        .eq("sku", payload.sku)\
+        .eq("scanned", False)\
+        .execute()
 
-    cubby_id = order_res.data.get("cubbyid")
+    if not item_res.data:
+        raise HTTPException(status_code=404, detail="SKU not pending in any order")
 
-    # 3. If no cubby assigned yet, find one and assign it
+    possible_orders = [row["orderid"] for row in item_res.data]
+
+    # 2. Find the best order (fewest remaining_items)
+    order_query = supabase.table("orders")\
+        .select("orderid, cubbyid, remaining_items")\
+        .in_("orderid", possible_orders)\
+        .order("remaining_items")\
+        .limit(1)\
+        .execute()
+
+    if not order_query.data:
+        raise HTTPException(status_code=404, detail="No matching orders with pending items")
+
+    best_order = order_query.data[0]
+    order_id = best_order["orderid"]
+    cubby_id = best_order.get("cubbyid")
+    remaining_items = best_order.get("remaining_items")
+
+    # 3. If no cubby assigned yet, find and assign one
     if cubby_id is None:
         cubby_res = supabase.table("cubbies")\
             .select("cubbyid")\
@@ -114,20 +127,31 @@ async def scan_item(payload: ScanItemRequest):
 
         cubby_id = cubby_res.data[0]["cubbyid"]
 
-        # Update orders table
-        supabase.table("orders").update({"cubbyid": cubby_id}).eq("orderid", payload.orderId).execute()
+        # Update order with cubby
+        supabase.table("orders").update({"cubbyid": cubby_id}).eq("orderid", order_id).execute()
 
         # Mark cubby as occupied
         supabase.table("cubbies").update({"occupied": True}).eq("cubbyid", cubby_id).execute()
 
     # 4. Mark item as scanned
-    supabase.table("order_items").update({"scanned": True}).eq("orderid", payload.orderId).eq("sku", payload.sku).execute()
+    supabase.table("order_items")\
+        .update({"scanned": True})\
+        .eq("orderid", order_id)\
+        .eq("sku", payload.sku)\
+        .execute()
 
-    # 5. Assign a random color index (0 to 5)
+    # 5. Decrease remaining items
+    supabase.table("orders")\
+        .update({"remaining_items": remaining_items - 1})\
+        .eq("orderid", order_id)\
+        .execute()
+
+    # 6. Get product name for response
+    product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
+    product_name = product_res.data["name"] if product_res.data else "Unknown Product"
+
+    # 7. Random color for MQTT
     color_index = random.randint(0, 5)
-
-    # 6. Send MQTT message to cubby with color
     send_mqtt_message(cubby_id, color_index)
 
-    # 7. Respond with assigned cubby, product name, and color
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
