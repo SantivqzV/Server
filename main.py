@@ -132,6 +132,12 @@ async def scan_item(payload: ScanItemRequest):
                 status_code=409,
                 detail=f"Cubby {cubby_id} is still in progress. Wait for confirmation before placing another item."
             )
+        
+        # Mark cubby as in progress because we are about to assign a new item
+        supabase.table("cubbies").update({
+            "in_progress": True
+        }).eq("cubbyid", cubby_id).execute()
+
 
 
     # 3. If no cubby assigned yet, find and assign one
