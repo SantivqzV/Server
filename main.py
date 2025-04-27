@@ -188,7 +188,7 @@ async def scan_item(payload: ScanItemRequest):
 
 @app.post("/confirm-placement")
 async def confirm_placement(payload: ConfirmPlacementRequest):
-    cubby_id = payload.cubbyId
+    cubby_id = payload.cubby_id
 
     # 1. Check cubby exists
     cubby_res = supabase.table("cubbies").select("*").eq("cubbyid", cubby_id).single().execute()
