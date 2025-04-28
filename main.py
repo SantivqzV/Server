@@ -135,6 +135,7 @@ async def scan_item(payload: ScanItemRequest):
         
         # Mark cubby as in progress because we are about to assign a new item
         supabase.table("cubbies").update({
+            "occupied": True,
             "in_progress": True
         }).eq("cubbyid", cubby_id).execute()
 
