@@ -15,8 +15,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 MQTT_BROKER = "8599a322d7a3418cae7d8d51f111fb87.s1.eu.hivemq.cloud"
 MQTT_PORT = 8883
-MQTT_USER = "santivqz"
-MQTT_PASS = "Coppel2025"
+MQTT_USER = "Servers1"
+MQTT_PASS = "Servers1"
 
 # Initialize MQTT client
 mqtt_client = mqtt.Client()
@@ -141,7 +141,7 @@ async def scan_item(payload: ScanItemRequest):
 
 
 
-    # 3. If no cubby assigned yet, find and assign one
+    # 4. If no cubby assigned yet, find and assign one
     if cubby_id is None:
         cubby_res = supabase.table("cubbies")\
             .select("cubbyid")\
@@ -164,24 +164,24 @@ async def scan_item(payload: ScanItemRequest):
             "in_progress": True
             }).eq("cubbyid", cubby_id).execute()
 
-    # 4. Mark item as scanned
+    # 5. Mark item as scanned
     supabase.table("order_items")\
         .update({"scanned": True})\
         .eq("orderid", order_id)\
         .eq("sku", payload.sku)\
         .execute()
 
-    # 5. Decrease remaining items
+    # 6. Decrease remaining items
     supabase.table("orders")\
         .update({"remaining_items": remaining_items - 1})\
         .eq("orderid", order_id)\
         .execute()
 
-    # 6. Get product name for response
+    # 7. Get product name for response
     product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
     product_name = product_res.data["name"] if product_res.data else "Unknown Product"
 
-    # 7. Random color for MQTT
+    # 8. Color for MQTT
     color_index = random.randint(0, 5)
     send_mqtt_message(cubby_id, color_index)
 
