@@ -58,6 +58,7 @@ app.add_middleware(
 # Pydantic model for scanning
 class ScanItemRequest(BaseModel):
     sku: str
+    color_index: int
 
 class ConfirmPlacementRequest(BaseModel):
     cubby_id: int
@@ -182,7 +183,7 @@ async def scan_item(payload: ScanItemRequest):
     product_name = product_res.data["name"] if product_res.data else "Unknown Product"
 
     # 8. Color for MQTT
-    color_index = random.randint(0, 5)
+    color_index = payload.color_index
     send_mqtt_message(cubby_id, color_index)
 
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
