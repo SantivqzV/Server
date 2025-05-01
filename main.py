@@ -101,6 +101,7 @@ async def scan_item(payload: ScanItemRequest):
 
     possible_orders = [row["orderid"] for row in item_res.data]
 
+    # 2. Find the best order (fewest remaining_items)
     # 2. Filter out orders with cubby in progress
     filtered_orders = []
 
@@ -133,11 +134,6 @@ async def scan_item(payload: ScanItemRequest):
     filtered_orders.sort(key=lambda x: x["remaining_items"])
     best_order = filtered_orders[0]
 
-
-    if not order_query.data:
-        raise HTTPException(status_code=404, detail="No matching orders with pending items")
-
-    best_order = order_query.data[0]
     order_id = best_order["orderid"]
     cubby_id = best_order.get("cubbyid")
     remaining_items = best_order.get("remaining_items")
@@ -164,8 +160,6 @@ async def scan_item(payload: ScanItemRequest):
             "occupied": True,
             "in_progress": True
         }).eq("cubbyid", cubby_id).execute()
-
-
 
     # 4. If no cubby assigned yet, find and assign one
     if cubby_id is None:
