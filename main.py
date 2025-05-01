@@ -101,13 +101,38 @@ async def scan_item(payload: ScanItemRequest):
 
     possible_orders = [row["orderid"] for row in item_res.data]
 
-    # 2. Find the best order (fewest remaining_items)
-    order_query = supabase.table("orders")\
-        .select("orderid, cubbyid, remaining_items")\
-        .in_("orderid", possible_orders)\
-        .order("remaining_items")\
-        .limit(1)\
-        .execute()
+    # 2. Filter out orders with cubby in progress
+    filtered_orders = []
+
+    for order in possible_orders:
+        order_data = supabase.table("orders")\
+            .select("orderid, cubbyid, remaining_items")\
+            .eq("orderid", order)\
+            .single()\
+            .execute()
+
+        if not order_data.data:
+            continue
+
+        cubby = order_data.data.get("cubbyid")
+        if cubby is not None:
+            cubby_data = supabase.table("cubbies")\
+                .select("in_progress")\
+                .eq("cubbyid", cubby)\
+                .single()\
+                .execute()
+            if cubby_data.data and cubby_data.data["in_progress"]:
+                continue  # Skip if cubby is currently in use
+
+        filtered_orders.append(order_data.data)
+
+    if not filtered_orders:
+        raise HTTPException(status_code=409, detail="All matching orders are currently in progress.")
+
+    # Sort by remaining_items ascending
+    filtered_orders.sort(key=lambda x: x["remaining_items"])
+    best_order = filtered_orders[0]
+
 
     if not order_query.data:
         raise HTTPException(status_code=404, detail="No matching orders with pending items")
