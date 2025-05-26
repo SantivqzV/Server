@@ -72,7 +72,7 @@ class RegisterUserRequest(BaseModel):
     color_index: int
 
 class UpdateColorRequest(BaseModel):
-    id: str
+    username: str
     color_hex: str
     color_index: int
 
@@ -303,7 +303,7 @@ async def register_user(payload: RegisterUserRequest):
 @app.patch("/update-color")
 async def update_color(payload: UpdateColorRequest):
     # Check if user exists
-    user_res = supabase.table("users").select("*").eq("id", payload.id).single().execute()
+    user_res = supabase.table("users").select("*").eq("username", payload.username).single().execute()
     if not user_res.data:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -311,7 +311,7 @@ async def update_color(payload: UpdateColorRequest):
     supabase.table("users").update({
         "color_hex": payload.color_hex,
         "color_index": payload.color_index
-    }).eq("id", payload.id).execute()
+    }).eq("username", payload.username).execute()
 
-    logging.info(f"✅ User {payload.id} color updated to {payload.color_hex}.")
-    return {"message": f"User {payload.id} color updated to {payload.color_hex}."}
+    logging.info(f"✅ User {payload.username} color updated to {payload.color_hex}.")
+    return {"message": f"User {payload.username} color updated to {payload.color_hex}."}
