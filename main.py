@@ -322,6 +322,8 @@ async def login(payload: LoginRequest):
 
     if user_data.get("password") != payload.password:
         return {"success": False}
+    
+    user_data.pop("password", None)  
 
     logging.info(f"✅ User {user_data.get('username')} logged in successfully.")
     return {"success": True, "user": user_data}
