@@ -3,4 +3,3 @@ uvicorn
 python-dotenv
 supabase
 paho-mqtt
-jwt
