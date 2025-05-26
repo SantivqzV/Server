@@ -101,7 +101,7 @@ async def scan_item(payload: ScanItemRequest):
 
     possible_orders = [row["orderid"] for row in item_res.data]
 
-    # 2. Find the best order (fewest remaining_items)
+
     # 2. Filter out orders with cubby in progress
     filtered_orders = []
 
@@ -223,3 +223,35 @@ async def confirm_placement(payload: ConfirmPlacementRequest):
 
     logging.info(f"✅ Cubby {cubby_id} placement confirmed.")
     return {"message": f"Cubby {cubby_id} confirmed"}
+
+@app.get("/get-orders")
+async def get_orders():
+    items_res = supabase.table("order_items").select("sku").execute()
+    if not items_res.data:
+        raise HTTPException(status_code=404, detail="No orders found")
+    
+    from collections import Counter
+    sku_counts = Counter([item["sku"] for item in items_res.data])
+
+    sku_list = list(sku_counts.keys())
+    products_res = supabase.table("products").select("sku, name").in_("sku", sku_list).execute()
+    sku_to_name = {prod["sku"]: prod["name"] for prod in products_res.data} if products_res.data else {}
+
+    result = []
+    for sku, count in sku_counts.items():
+        result.append({
+            "sku": sku,
+            "name": sku_to_name.get(sku, "Unknown Product"),
+            "count": count
+        })
+        
+    return result
+
+@app.get("/get-cubbies")
+async def get_cubbies():
+    cubbies_res = supabase.table("cubbies").select("*").execute()
+    if not cubbies_res.data:
+        raise HTTPException(status_code=404, detail="No cubbies found")
+    
+    return cubbies_res.data
+    
