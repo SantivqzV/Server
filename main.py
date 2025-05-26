@@ -315,3 +315,11 @@ async def update_color(payload: UpdateColorRequest):
 
     logging.info(f"✅ User {payload.username} color updated to {payload.color_hex}.")
     return {"message": f"User {payload.username} color updated to {payload.color_hex}."}
+
+@app.get("/get-used-colors")
+async def get_users():
+    users_res = supabase.table("users").select("color_hex, color_index").execute()
+    if not users_res.data:
+        raise HTTPException(status_code=404, detail="No users found")
+    
+    return users_res.data
