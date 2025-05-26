@@ -259,16 +259,16 @@ async def get_cubbies():
     for cubby in cubbies:
         cubby_info = dict(cubby)
         cubby_id = cubby.get("cubbyid")
-        order_res = supabase.table("orders").select("orderid, remaining_items").eq("cubbyid", cubby_id).single().execute()
-
-        if order_res.data:
-            cubby_info["orderid"] = order_res.data.get["orderid"]
-            cubby_info["remaining_items"] = order_res.data.get("remaining_items")
+        # Use limit(1) to avoid errors if no order is found
+        order_res = supabase.table("orders").select("orderid, remaining_items").eq("cubbyid", cubby_id).limit(1).execute()
+        if order_res.data and len(order_res.data) > 0 and order_res.data[0].get("orderid") is not None:
+            cubby_info["orderid"] = order_res.data[0].get("orderid", 0)
+            cubby_info["remaining_items"] = order_res.data[0].get("remaining_items", None)
         else:
-            cubby_info["order"] = None
+            cubby_info["orderid"] = 0
             cubby_info["remaining_items"] = None
         
         result.append(cubby_info)
 
     return result
-    
+
