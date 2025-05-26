@@ -283,8 +283,8 @@ async def get_cubbies():
 @app.post("/register-user")
 async def register_user(payload: RegisterUserRequest):
     # Check if user already exists by username or email
-    existing_user = supabase.table("users").select("*").eq("username", payload.username).single().execute()
-    if existing_user.data:
+    existing_user = supabase.table("users").select("*").eq("username", payload.username).limit(1).execute()
+    if existing_user.data and len(existing_user.data) > 0:
         raise HTTPException(status_code=400, detail="User already registered")
 
     # Insert new user (Supabase will generate the id)
