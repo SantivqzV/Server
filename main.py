@@ -359,5 +359,5 @@ async def get_users():
 async def me(payload: UserExistsRequest):
     user_res = supabase.table("users").select("*").eq("id", payload.uuid).limit(1).execute()
     if user_res.data and len(user_res.data) > 0:
-        return {"exists": True}
-    return {"exists": False, "data": user_res.data}
+        return {"exists": True, "data": user_res.data}
+    return {"exists": False}
