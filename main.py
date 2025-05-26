@@ -270,6 +270,6 @@ async def get_cubbies():
         
         result.append(cubby_info)
 
-    result.sort(key=lambda x: x["cubbyid"])  # Sort by cubbyid
+    result.sort(key=lambda x: x.get("cubbyid", 0))
     return result
 
