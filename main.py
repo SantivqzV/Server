@@ -244,7 +244,8 @@ async def get_orders():
             "name": sku_to_name.get(sku, "Unknown Product"),
             "count": count
         })
-        
+
+    result.sort(key=lambda x: x["count"], reverse=True)  # Sort by SKU
     return result
 
 @app.get("/get-cubbies")
