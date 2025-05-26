@@ -63,6 +63,14 @@ class ScanItemRequest(BaseModel):
 class ConfirmPlacementRequest(BaseModel):
     cubby_id: int
 
+class RegisterUserRequest(BaseModel):
+    id: str
+    name: str
+    username: str
+    email: str
+    color_hex: str
+    color_index: int
+
 # Helper to send MQTT message with full debug
 def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
@@ -273,3 +281,23 @@ async def get_cubbies():
     result.sort(key=lambda x: x.get("cubbyid", 0))
     return result
 
+@app.post("/register-user")
+async def register_user(payload: RegisterUserRequest):
+    # 1. Check if user already exists
+    existing_user = supabase.table("users").select("*").eq("id", payload.id).single().execute()
+    if existing_user.data:
+        raise HTTPException(status_code=400, detail="User already registered")
+
+    # 2. Insert new user
+    user_data = {
+        "id": payload.id,
+        "name": payload.name,
+        "username": payload.username,
+        "email": payload.email,
+        "color_hex": payload.color_hex,
+        "color_index": payload.color_index
+    }
+    supabase.table("users").insert(user_data).execute()
+
+    logging.info(f"✅ User {payload.username} registered successfully.")
+    return {"message": f"User {payload.username} registered successfully."}
