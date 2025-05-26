@@ -71,6 +71,11 @@ class RegisterUserRequest(BaseModel):
     color_hex: str
     color_index: int
 
+class LoginRequest(BaseModel):
+    email: str
+    username: str
+    password: str
+
 class UpdateColorRequest(BaseModel):
     username: str
     color_hex: str
@@ -95,7 +100,6 @@ def send_mqtt_message(cubby_id: int, color_index: int):
             logging.error(f"❌ MQTT Publish failed with code {result.rc}")
     except Exception as e:
         logging.error(f"⚠️ MQTT publish exception: {e}")
-
 
 # POST /scan-item endpoint
 @app.post("/scan-item")
@@ -288,8 +292,12 @@ async def get_cubbies():
 
 @app.post("/register-user")
 async def register_user(payload: RegisterUserRequest):
-    # Check if user already exists by username or email
-    existing_user = supabase.table("users").select("*").eq("username", payload.username).limit(1).execute()
+    # Check if user already exists by username OR email
+    existing_user = supabase.table("users") \
+        .select("*") \
+        .or_(f"username.eq.{payload.username},email.eq.{payload.email}") \
+        .limit(1) \
+        .execute()
     if existing_user.data and len(existing_user.data) > 0:
         raise HTTPException(status_code=400, detail="User already registered")
 
@@ -299,6 +307,25 @@ async def register_user(payload: RegisterUserRequest):
 
     logging.info(f"✅ User {payload.username} registered successfully.")
     return {"message": f"User {payload.username} registered successfully."}
+
+@app.post("/login")
+async def login(payload: LoginRequest):
+    # Check if user exists by username OR email
+    user_res = supabase.table("users") \
+        .select("*") \
+        .or_(f"username.eq.{payload.username},email.eq.{payload.email}") \
+        .limit(1) \
+        .execute()
+    if not user_res.data or len(user_res.data) == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_data = user_res.data[0]
+
+    if user_data.get("password") != payload.password:
+        raise HTTPException(status_code=401, detail="Invalid password")
+
+    logging.info(f"✅ User {user_data.get('username')} logged in successfully.")
+    return {"message": f"User {user_data.get('username')} logged in successfully."}
 
 @app.patch("/update-color")
 async def update_color(payload: UpdateColorRequest):
