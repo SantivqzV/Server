@@ -80,6 +80,9 @@ class UpdateColorRequest(BaseModel):
     color_hex: str
     color_index: int
 
+class UserExistsRequest(BaseModel):
+    uuid: str
+
 # Helper to send MQTT message with full debug
 def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
@@ -351,3 +354,10 @@ async def get_users():
         raise HTTPException(status_code=404, detail="No users found")
     
     return users_res.data
+
+@app.post("/me")
+async def me(payload: UserExistsRequest):
+    user_res = supabase.table("users").select("id").eq("id", payload.uuid).limit(1).execute()
+    if user_res.data and len(user_res.data) > 0:
+        return {"exists": True}
+    return {"exists": False}
