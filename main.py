@@ -72,8 +72,7 @@ class RegisterUserRequest(BaseModel):
     color_index: int
 
 class LoginRequest(BaseModel):
-    email: str
-    username: str
+    identifier: str
     password: str
 
 class UpdateColorRequest(BaseModel):
@@ -313,19 +312,19 @@ async def login(payload: LoginRequest):
     # Check if user exists by username OR email
     user_res = supabase.table("users") \
         .select("*") \
-        .or_(f"username.eq.{payload.username},email.eq.{payload.email}") \
+        .or_(f"username.eq.{payload.identifier},email.eq.{payload.identifier}") \
         .limit(1) \
         .execute()
     if not user_res.data or len(user_res.data) == 0:
-        raise HTTPException(status_code=404, detail="User not found")
+        return {"success": False}
 
     user_data = user_res.data[0]
 
     if user_data.get("password") != payload.password:
-        raise HTTPException(status_code=401, detail="Invalid password")
+        return {"success": False}
 
     logging.info(f"✅ User {user_data.get('username')} logged in successfully.")
-    return {"message": f"User {user_data.get('username')} logged in successfully."}
+    return {"success": True, "user": user_data}
 
 @app.patch("/update-color")
 async def update_color(payload: UpdateColorRequest):
