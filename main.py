@@ -254,5 +254,21 @@ async def get_cubbies():
     if not cubbies_res.data:
         raise HTTPException(status_code=404, detail="No cubbies found")
     
-    return cubbies_res.data
+    cubbies = cubbies_res.data
+    result = []
+    for cubby in cubbies:
+        cubby_info = dict(cubby)
+        cubby_id = cubby.get("cubbyid")
+        order_res = supabase.table("orders").select("orderid, remaining_items")
+
+        if order_res.data:
+            cubby_info["orderid"] = order_res.data.get["orderid"]
+            cubby_info["remaining_items"] = order_res.data.get("remaining_items")
+        else:
+            cubby_info["order"] = None
+            cubby_info["remaining_items"] = None
+        
+        result.append(cubby_info)
+
+    return result
     
