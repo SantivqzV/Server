@@ -106,6 +106,14 @@ def send_mqtt_message(cubby_id: int, color_index: int):
     except Exception as e:
         logging.error(f"⚠️ MQTT publish exception: {e}")
 
+def send_mqtt_light_signal(cubby_id: int, color: str, blink: bool):
+    payload = {
+        "cubby_id": cubby_id,
+        "action": "blink" if blink else "on",
+        "color": color
+    }
+    mqtt.publish(f"{MQTT_TOPIC_BASE}/{cubby_id}", json.dumps(payload))
+
 # POST /scan-item endpoint
 @app.post("/scan-item")
 async def scan_item(payload: ScanItemRequest):
@@ -233,18 +241,38 @@ async def scan_item(payload: ScanItemRequest):
 async def confirm_placement(payload: ConfirmPlacementRequest):
     cubby_id = payload.cubby_id
 
-    # 1. Check cubby exists
-    cubby_res = supabase.table("cubbies").select("*").eq("cubbyid", cubby_id).single().execute()
-    if not cubby_res.data:
-        raise HTTPException(status_code=404, detail="Cubby not found")
+    # Verificar y obtener la orden activa
+    order_res = supabase.table("orders").select("*").eq("cubbyid", cubby_id).eq("status", "in_progress").single().execute()
+    order = order_res.data
+    if not order:
+        raise HTTPException(status_code=404, detail="No active order found")
 
-    # 2. Set in_progress = FALSE
-    supabase.table("cubbies").update({
-        "in_progress": False
-    }).eq("cubbyid", cubby_id).execute()
+    new_quantity = order["quantity"] - 1
 
-    logging.info(f"✅ Cubby {cubby_id} placement confirmed.")
-    return {"message": f"Cubby {cubby_id} confirmed"}
+    # Actualizar la orden con nueva cantidad
+    supabase.table("orders").update({"quantity": new_quantity}).eq("orderid", order["orderid"]).execute()
+
+    # Verificar si ya no quedan ítems
+    if new_quantity == 0:
+        # Obtener paquetería
+        paqueteria = order.get("paqueteria", "").lower()
+        
+        if paqueteria == "coppel":
+            # Luz amarilla intermitente
+            send_mqtt_light_signal(cubby_id, color="yellow", blink=True)
+        else:
+            # Otra luz diferenciada (ej. azul fija)
+            send_mqtt_light_signal(cubby_id, color="blue", blink=False)
+
+        # Marcar cubby como libre
+        supabase.table("cubbies").update({
+            "occupied": False,
+            "in_progress": False
+        }).eq("cubbyid", cubby_id).execute()
+
+        logging.info(f"✅ Orden {order['orderid']} completada. Luz enviada a cubby {cubby_id}.")
+
+    return {"message": "Colocación confirmada"}
 
 @app.get("/get-orders")
 async def get_orders():
