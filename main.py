@@ -106,11 +106,11 @@ def send_mqtt_message(cubby_id: int, color_index: int):
     except Exception as e:
         logging.error(f"⚠️ MQTT publish exception: {e}")
 
-def send_mqtt_light_signal(cubby_id: int, color: str, blink: bool):
+def send_mqtt_light_signal(cubby_id: int, blink: bool):
     payload = {
         "cubby_id": cubby_id,
         "action": "blink" if blink else "on",
-        "color": color
+        "paqueteria": "coppel",  
     }
     mqtt.publish(f"{MQTT_TOPIC_BASE}/{cubby_id}", json.dumps(payload))
 
@@ -257,14 +257,8 @@ async def confirm_placement(payload: ConfirmPlacementRequest):
         # Obtener paquetería
         paqueteria = order.get("paqueteria", "").lower()
         
-        if paqueteria == "coppel":
-            # Luz amarilla intermitente
-            send_mqtt_light_signal(cubby_id, color="yellow", blink=True)
-        else:
-            # Otra luz diferenciada (ej. azul fija)
-            send_mqtt_light_signal(cubby_id, color="blue", blink=False)
+        send_mqtt_light_signal(cubby_id, blink=True, paqueteria=paqueteria)
 
-        # Marcar cubby como libre
         supabase.table("cubbies").update({
             "occupied": False,
             "in_progress": False
