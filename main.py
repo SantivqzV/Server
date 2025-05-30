@@ -269,7 +269,9 @@ async def confirm_placement(payload: ConfirmPlacementRequest):
         paqueteria = order.get("paqueteria", "").lower()
         
         send_mqtt_light_signal(cubby_id, blink=True, paqueteria=paqueteria)
+        send_mqtt_message(cubby_id, 1, 1)
 
+        
         supabase.table("cubbies").update({
             "occupied": False,
             "in_progress": False
