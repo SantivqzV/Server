@@ -106,12 +106,12 @@ def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
     except Exception as e:
         logging.error(f"⚠️ MQTT publish exception: {e}")
 
-def send_mqtt_light_signal(cubby_id: int, blink: bool):
+def send_mqtt_light_signal(cubby_id: int, blink: bool, paqueteria):
     topic = f"cubbie/{cubby_id}/item"
     payload = {
         "cubby_id": cubby_id,
         "action": "blink" if blink else "on",
-        "paqueteria": "coppel",  
+        "paqueteria": paqueteria if paqueteria else "unknown",  
     }
     mqtt.publish(topic, json.dumps(payload))
 
