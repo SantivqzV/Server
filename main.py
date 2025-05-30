@@ -83,6 +83,9 @@ class UpdateColorRequest(BaseModel):
 class UserExistsRequest(BaseModel):
     uuid: str
 
+class ReleaseCubbyRequest(BaseModel):
+    cubby_id: int
+
 # Helper to send MQTT message with full debug
 def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
@@ -369,3 +372,26 @@ async def get_operators():
         raise HTTPException(status_code=404, detail="No operators found")
     
     return operators_res.data
+
+@app.post("/release-cubby")
+async def release_cubby(payload: ReleaseCubbyRequest):
+    cubby_id = payload.cubby_id
+
+    # Verificar que el cubby existe
+    cubby_res = supabase.table("cubbies").select("*").eq("cubbyid", cubby_id).single().execute()
+    if not cubby_res.data:
+        raise HTTPException(status_code=404, detail="Cubby not found")
+
+    # Actualizar estado
+    supabase.table("cubbies").update({
+        "occupied": False,
+        "in_progress": False
+    }).eq("cubbyid", cubby_id).execute()
+
+    # (Opcional) desvincularlo de una orden
+    supabase.table("orders").update({
+        "cubbyid": None
+    }).eq("cubbyid", cubby_id).execute()
+
+    logging.info(f"🟩 Cubby {cubby_id} liberado manualmente.")
+    return {"message": f"Cubby {cubby_id} fue liberado exitosamente."}
