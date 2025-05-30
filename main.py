@@ -231,8 +231,6 @@ async def scan_item(payload: ScanItemRequest):
     
     remaining_items = remaining_items_res.data["remaining_items"] if remaining_items_res.data else 0
     
-    print(f"Remaining items after scan: {remaining_items.data['remaining_items']}")
-
     # 8. Color for MQTT
     color_index = payload.color_index
     send_mqtt_message(cubby_id, color_index, remaining_items)
