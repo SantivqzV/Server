@@ -87,31 +87,14 @@ class ReleaseCubbyRequest(BaseModel):
     cubby_id: int
 
 # Helper to send MQTT message with full debug
-def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
+def send_mqtt_message(cubby_id: int, color_index: int):
     topic = f"cubbie/{cubby_id}/item"
     colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
     color_name = colors[color_index]
     payload = {
         "status": "ASSIGNED",
         "color": color_name,
-        "remaining_items": remaining_items  # optional, could be dynamic later
-    }
-    try:
-        logging.info(f"Publishing MQTT to '{topic}' with payload '{payload}'")
-        result = mqtt_client.publish(topic, json.dumps(payload))
-        if result.rc == mqtt.MQTT_ERR_SUCCESS:
-            logging.info(f"✅ MQTT Published to {topic}")
-        else:
-            logging.error(f"❌ MQTT Publish failed with code {result.rc}")
-    except Exception as e:
-        logging.error(f"⚠️ MQTT publish exception: {e}")
-
-def send_mqtt_light_signal(cubby_id: int, blink: bool, paqueteria: str):
-    topic = f"cubbie/{cubby_id}/item"
-    payload = {
-        "cubby_id": cubby_id,
-        "action": "blink" if blink else "on",
-        "paqueteria": paqueteria,  
+        "remaining_items": 3  # optional, could be dynamic later
     }
     try:
         logging.info(f"Publishing MQTT to '{topic}' with payload '{payload}'")
@@ -239,17 +222,10 @@ async def scan_item(payload: ScanItemRequest):
     # 7. Get product name for response
     product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
     product_name = product_res.data["name"] if product_res.data else "Unknown Product"
-    remaining_items_res = supabase.table("orders")\
-        .select("remaining_items")\
-        .eq("orderid", order_id)\
-        .single()\
-        .execute()
-    
-    remaining_items = remaining_items_res.data["remaining_items"] if remaining_items_res.data else 0
-    
+
     # 8. Color for MQTT
     color_index = payload.color_index
-    send_mqtt_message(cubby_id, color_index, remaining_items)
+    send_mqtt_message(cubby_id, color_index)
 
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
 
@@ -257,29 +233,18 @@ async def scan_item(payload: ScanItemRequest):
 async def confirm_placement(payload: ConfirmPlacementRequest):
     cubby_id = payload.cubby_id
 
-    # Verificar y obtener la orden activa
-    order_res = supabase.table("orders").select("*").eq("cubbyid", cubby_id).eq("status", "in_progress").single().execute()
-    order = order_res.data
-    if not order:
-        raise HTTPException(status_code=404, detail="No active order found")
+    # 1. Check cubby exists
+    cubby_res = supabase.table("cubbies").select("*").eq("cubbyid", cubby_id).single().execute()
+    if not cubby_res.data:
+        raise HTTPException(status_code=404, detail="Cubby not found")
 
-    # Verificar si ya no quedan ítems
-    if order["remaining_items"] == 0:
-        # Obtener paquetería
-        paqueteria = order.get("paqueteria", "").lower()
-        
-        send_mqtt_light_signal(cubby_id, blink=True, paqueteria=paqueteria)
-        send_mqtt_message(cubby_id, 1, 1)
+    # 2. Set in_progress = FALSE
+    supabase.table("cubbies").update({
+        "in_progress": False
+    }).eq("cubbyid", cubby_id).execute()
 
-        
-        supabase.table("cubbies").update({
-            "occupied": False,
-            "in_progress": False
-        }).eq("cubbyid", cubby_id).execute()
-
-        logging.info(f"✅ Orden {order['orderid']} completada. Luz enviada a cubby {cubby_id}.")
-
-    return {"message": "Colocación confirmada"}
+    logging.info(f"✅ Cubby {cubby_id} placement confirmed.")
+    return {"message": f"Cubby {cubby_id} confirmed"}
 
 @app.get("/get-orders")
 async def get_orders():
