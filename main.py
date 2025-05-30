@@ -87,14 +87,15 @@ class ReleaseCubbyRequest(BaseModel):
     cubby_id: int
 
 # Helper to send MQTT message with full debug
-def send_mqtt_message(cubby_id: int, color_index: int):
+def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
     topic = f"cubbie/{cubby_id}/item"
     colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
     color_name = colors[color_index]
     payload = {
         "status": "ASSIGNED",
         "color": color_name,
-        "remaining_items": 3  # optional, could be dynamic later
+        "remaining_items": remaining_items,
+        "paqueteria": "coppel",
     }
     try:
         logging.info(f"Publishing MQTT to '{topic}' with payload '{payload}'")
@@ -159,6 +160,7 @@ async def scan_item(payload: ScanItemRequest):
     order_id = best_order["orderid"]
     cubby_id = best_order.get("cubbyid")
     remaining_items = best_order.get("remaining_items")
+    
 
     # 3. Check if assigned cubby is in progress
     if cubby_id is not None:
@@ -225,7 +227,7 @@ async def scan_item(payload: ScanItemRequest):
 
     # 8. Color for MQTT
     color_index = payload.color_index
-    send_mqtt_message(cubby_id, color_index)
+    send_mqtt_message(cubby_id, color_index, (remaining_items - 1))
 
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
 
