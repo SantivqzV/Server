@@ -106,13 +106,6 @@ def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
     except Exception as e:
         logging.error(f"⚠️ MQTT publish exception: {e}")
 
-def send_mqtt_light_signal(cubby_id: int, blink: bool):
-    payload = {
-        "cubby_id": cubby_id,
-        "action": "blink" if blink else "on",
-        "paqueteria": "coppel",  
-    }
-    mqtt.publish(f"{MQTT_TOPIC_BASE}/{cubby_id}", json.dumps(payload))
 
 # POST /scan-item endpoint
 @app.post("/scan-item")
@@ -230,11 +223,15 @@ async def scan_item(payload: ScanItemRequest):
     # 7. Get product name for response
     product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
     product_name = product_res.data["name"] if product_res.data else "Unknown Product"
-    remaining_items = supabase.table("orders")\
+    remaining_items_res = supabase.table("orders")\
         .select("remaining_items")\
         .eq("orderid", order_id)\
         .single()\
         .execute()
+    
+    remaining_items = remaining_items_res.data["remaining_items"] if remaining_items_res.data else 0
+    
+    print(f"Remaining items after scan: {remaining_items.data['remaining_items']}")
 
     # 8. Color for MQTT
     color_index = payload.color_index
