@@ -94,7 +94,7 @@ def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
     payload = {
         "status": "ASSIGNED",
         "color": color_name,
-        "remaining_items": 3  # optional, could be dynamic later
+        "remaining_items": remaining_items  # optional, could be dynamic later
     }
     try:
         logging.info(f"Publishing MQTT to '{topic}' with payload '{payload}'")
