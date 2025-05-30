@@ -255,13 +255,8 @@ async def confirm_placement(payload: ConfirmPlacementRequest):
     if not order:
         raise HTTPException(status_code=404, detail="No active order found")
 
-    new_quantity = order["quantity"] - 1
-
-    # Actualizar la orden con nueva cantidad
-    supabase.table("orders").update({"quantity": new_quantity}).eq("orderid", order["orderid"]).execute()
-
     # Verificar si ya no quedan ítems
-    if new_quantity == 0:
+    if order["remaining_items"] == 0:
         # Obtener paquetería
         paqueteria = order.get("paqueteria", "").lower()
         
