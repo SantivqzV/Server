@@ -215,12 +215,6 @@ async def scan_item(payload: ScanItemRequest):
         .eq("sku", payload.sku)\
         .execute()
 
-    # 6. Decrease remaining items
-    supabase.table("orders")\
-        .update({"remaining_items": remaining_items - 1})\
-        .eq("orderid", order_id)\
-        .execute()
-
     # 7. Get product name for response
     product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
     product_name = product_res.data["name"] if product_res.data else "Unknown Product"
