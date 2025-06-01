@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import random
 import json
 import logging
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
@@ -210,7 +211,9 @@ async def scan_item(payload: ScanItemRequest):
 
     # 5. Mark item as scanned
     supabase.table("order_items")\
-        .update({"scanned": True})\
+        .update({"scanned": True,
+                 "scanned_at": datetime.utcnow().strftime("%Y-%m-%d")
+                })\
         .eq("orderid", order_id)\
         .eq("sku", payload.sku)\
         .execute()
