@@ -391,3 +391,12 @@ async def release_cubby(payload: ReleaseCubbyRequest):
 
     logging.info(f"🟩 Cubby {cubby_id} liberado manualmente.")
     return {"message": f"Cubby {cubby_id} fue liberado exitosamente."}
+
+# get scanned items with dates
+@app.get("/get-scanned-items")
+async def get_scanned_items():
+    scanned_items_res = supabase.table("order_items").select("*").eq("scanned", True).execute()
+    if not scanned_items_res.data:
+        raise HTTPException(status_code=404, detail="No scanned items found")
+    
+    return scanned_items_res.data
