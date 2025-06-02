@@ -366,7 +366,7 @@ async def me(payload: UserExistsRequest):
 
 @app.get("/get-operators")
 async def get_operators():
-    operators_res = supabase.table("operators").select("*").execute()
+    operators_res = supabase.table("users").select("*").execute()
     if not operators_res.data:
         raise HTTPException(status_code=404, detail="No operators found")
     
