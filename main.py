@@ -406,7 +406,6 @@ async def release_cubby(payload: ReleaseCubbyRequest):
     logging.info(f"🟩 Cubby {cubby_id} liberado manualmente.")
     return {"message": f"Cubby {cubby_id} fue liberado exitosamente."}
 
-# get scanned items with dates
 @app.get("/get-scanned-items")
 async def get_scanned_items():
     scanned_items_res = supabase.table("order_items").select("*").eq("scanned", True).execute()
@@ -414,3 +413,15 @@ async def get_scanned_items():
         raise HTTPException(status_code=404, detail="No scanned items found")
     
     return scanned_items_res.data
+
+@app.delete("/delete-user/{username}")
+async def delete_user(username: str):
+    # Check if user exists
+    user_res = supabase.table("users").select("id").eq("username", username).single().execute()
+    if not user_res.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete the user
+    supabase.table("users").delete().eq("username", username).execute()
+    logging.info(f"🗑️ User {username} deleted.")
+    return {"message": f"User {username} deleted successfully."}
