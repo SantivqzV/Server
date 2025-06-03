@@ -372,6 +372,17 @@ async def get_operators():
     
     return operators_res.data
 
+@app.get("/get-operator-color")
+async def get_operator_color(username: str):
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+
+    user_res = supabase.table("users").select("color_hex, color_index").eq("username", username).single().execute()
+    if not user_res.data:
+        raise HTTPException(status_code=404, detail="Operator not found")
+
+    return user_res.data
+
 @app.post("/release-cubby")
 async def release_cubby(payload: ReleaseCubbyRequest):
     cubby_id = payload.cubby_id
