@@ -230,7 +230,7 @@ async def scan_item(payload: ScanItemRequest):
 
     # 8. Color for MQTT
     color_index = payload.color_index
-    send_mqtt_message(cubby_id, color_index, (remaining_items))
+    send_mqtt_message(cubby_id, color_index, (new_remaining))
 
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
 
