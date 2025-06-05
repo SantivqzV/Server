@@ -96,7 +96,7 @@ def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int, paq
         "status": "ASSIGNED",
         "color": color_name,
         "remaining_items": remaining_items,
-        "paqueteria": "coppel",
+        "paqueteria": paqueteria,
     }
     try:
         logging.info(f"Publishing MQTT to '{topic}' with payload '{payload}'")
@@ -236,7 +236,7 @@ async def scan_item(payload: ScanItemRequest):
     paqueteria_name = paqueteria_res.data["Paqueteria"] if paqueteria_res.data else "Unknown Paqueteria"
 
     send_mqtt_message(cubby_id, color_index, (new_remaining), paqueteria_name)
-    
+
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
 
 @app.post("/confirm-placement")
