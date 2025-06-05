@@ -88,7 +88,7 @@ class ReleaseCubbyRequest(BaseModel):
     cubby_id: int
 
 # Helper to send MQTT message with full debug
-def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int ):
+def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int, paqueteria: str ):
     topic = f"cubbie/{cubby_id}/item"
     colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
     color_name = colors[color_index]
@@ -230,8 +230,13 @@ async def scan_item(payload: ScanItemRequest):
 
     # 8. Color for MQTT
     color_index = payload.color_index
-    send_mqtt_message(cubby_id, color_index, (new_remaining))
 
+    # 9. Paqueteria
+    paqueteria_res = supabase.table("orders").select("Paqueteria").eq("orderid", order_id).single().execute()
+    paqueteria_name = paqueteria_res.data["Paqueteria"] if paqueteria_res.data else "Unknown Paqueteria"
+
+    send_mqtt_message(cubby_id, color_index, (new_remaining), paqueteria_name)
+    
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
 
 @app.post("/confirm-placement")
