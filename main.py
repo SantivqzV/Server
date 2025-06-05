@@ -88,7 +88,7 @@ class ReleaseCubbyRequest(BaseModel):
     cubby_id: int
 
 # Helper to send MQTT message with full debug
-def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int):
+def send_mqtt_message(cubby_id: int, color_index: int, remaining_items: int ):
     topic = f"cubbie/{cubby_id}/item"
     colors = ["red", "green", "blue", "yellow", "cyan", "magenta"]
     color_name = colors[color_index]
@@ -217,6 +217,12 @@ async def scan_item(payload: ScanItemRequest):
         .eq("orderid", order_id)\
         .eq("sku", payload.sku)\
         .execute()
+    
+    # 6. Update remaining_items for the order
+    order_res = supabase.table("orders").select("remaining_items").eq("orderid", order_id).single().execute()
+    current_remaining = order_res.data["remaining_items"] if order_res.data else 0
+    new_remaining = max(current_remaining - 1, 0)
+    supabase.table("orders").update({"remaining_items": new_remaining}).eq("orderid", order_id).execute()
 
     # 7. Get product name for response
     product_res = supabase.table("products").select("name").eq("sku", payload.sku).single().execute()
@@ -224,7 +230,7 @@ async def scan_item(payload: ScanItemRequest):
 
     # 8. Color for MQTT
     color_index = payload.color_index
-    send_mqtt_message(cubby_id, color_index, (remaining_items - 1))
+    send_mqtt_message(cubby_id, color_index, (remaining_items))
 
     return {"assignedCubby": cubby_id, "productName": product_name, "colorIndex": color_index}
 
