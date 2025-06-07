@@ -131,7 +131,7 @@ async def scan_item(payload: ScanItemRequest):
 
     for order in possible_orders:
         order_data = supabase.table("orders")\
-            .select("orderid, cubbyid, remaining_items")\
+            .select("orderid, cubbyid, remaining_items, paqueteria")\
             .eq("orderid", order)\
             .single()\
             .execute()
@@ -155,7 +155,9 @@ async def scan_item(payload: ScanItemRequest):
         raise HTTPException(status_code=409, detail="All matching orders are currently in progress.")
 
     # Sort by remaining_items ascending
-    filtered_orders.sort(key=lambda x: x["remaining_items"])
+    filtered_orders.sort(
+        key=lambda x: (0 if str(x.get("paqueteria", "")).lower() == "coppel" else 1, x["remaining_items"])
+    )
     best_order = filtered_orders[0]
 
     order_id = best_order["orderid"]
