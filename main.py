@@ -156,7 +156,7 @@ async def scan_item(payload: ScanItemRequest):
 
     # Sort by remaining_items ascending
     filtered_orders.sort(
-        key=lambda x: (0 if str(x.get("paqueteria", "")).lower() == "coppel" else 1, x["remaining_items"])
+        key=lambda x: (0 if str(x.get("Paqueteria", "")).lower() == "coppel" else 1, x["remaining_items"])
     )
     best_order = filtered_orders[0]
 
