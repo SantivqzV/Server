@@ -131,7 +131,7 @@ async def scan_item(payload: ScanItemRequest):
 
     for order in possible_orders:
         order_data = supabase.table("orders")\
-            .select("orderid, cubbyid, remaining_items, paqueteria")\
+            .select("orderid, cubbyid, remaining_items, Paqueteria")\
             .eq("orderid", order)\
             .single()\
             .execute()
